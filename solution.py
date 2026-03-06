@@ -1,5 +1,5 @@
-## Student Name:
-## Student ID:
+## Student Name: Manya Khattri
+## Student ID: 219830025
 
 """
 Task B: Event Registration with Waitlist (Stub)
