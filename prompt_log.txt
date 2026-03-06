@@ -728,8 +728,381 @@ If you'd like, I can also show you the **exact unit tests professors usually use
 }
 --------------------------------------------------
 
-Prompt #3: {}
-Response #3: {}
+Prompt #3: {import pytest
+
+from solution import EventRegistration, UserStatus, DuplicateRequest, NotFound
+
+
+def test_register_until_capacity_then_waitlist_fifo_positions():
+    er = EventRegistration(capacity=2)
+
+    s1 = er.register("u1")
+    s2 = er.register("u2")
+    s3 = er.register("u3")
+    s4 = er.register("u4")
+
+    assert s1 == UserStatus("registered")
+    assert s2 == UserStatus("registered")
+    assert s3 == UserStatus("waitlisted", 1)
+    assert s4 == UserStatus("waitlisted", 2)
+
+    snap = er.snapshot()
+    assert snap["registered"] == ["u1", "u2"]
+    assert snap["waitlist"] == ["u3", "u4"]
+
+
+def test_cancel_registered_promotes_earliest_waitlisted_fifo():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    er.register("u2")  # waitlist
+    er.register("u3")  # waitlist
+
+    er.cancel("u1")  # should promote u2
+
+    assert er.status("u1") == UserStatus("none")
+    assert er.status("u2") == UserStatus("registered")
+    assert er.status("u3") == UserStatus("waitlisted", 1)
+
+    snap = er.snapshot()
+    assert snap["registered"] == ["u2"]
+    assert snap["waitlist"] == ["u3"]
+
+
+def test_duplicate_register_raises_for_registered_and_waitlisted():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    with pytest.raises(DuplicateRequest):
+        er.register("u1")
+
+    er.register("u2")  # waitlisted
+    with pytest.raises(DuplicateRequest):
+        er.register("u2")
+
+
+def test_waitlisted_cancel_removes_and_updates_positions():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    er.register("u2")  # waitlist pos1
+    er.register("u3")  # waitlist pos2
+
+    er.cancel("u2")    # remove from waitlist
+
+    assert er.status("u2") == UserStatus("none")
+    assert er.status("u3") == UserStatus("waitlisted", 1)
+
+    snap = er.snapshot()
+    assert snap["registered"] == ["u1"]
+    assert snap["waitlist"] == ["u3"]
+
+
+def test_capacity_zero_all_waitlisted_and_promotion_never_happens():
+    er = EventRegistration(capacity=0)
+    assert er.register("u1") == UserStatus("waitlisted", 1)
+    assert er.register("u2") == UserStatus("waitlisted", 2)
+
+    # No one can ever be registered when capacity=0
+    assert er.status("u1") == UserStatus("waitlisted", 1)
+    assert er.status("u2") == UserStatus("waitlisted", 2)
+    assert er.snapshot()["registered"] == []
+
+    # Cancel unknown should raise NotFound
+    with pytest.raises(NotFound):
+        er.cancel("missing")
+
+
+
+#################################################################################
+# Add your own additional tests here to cover more cases and edge cases as needed.
+#################################################################################
+
+"""Ensures cancellation removes the user completely and allows them to re-register."""
+def test_reregister_after_cancel():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    er.cancel("u1")
+    status = er.register("u1")
+    assert status == UserStatus("registered")
+    assert er.snapshot()["registered"] == ["u1"]
+
+"""Verifies FIFO promotions remain correct across multiple promotions."""
+def test_multiple_cancellations_sequence():
+    er = EventRegistration(capacity=2)
+    er.register("u1")
+    er.register("u2")
+    er.register("u3")  # waitlist pos1
+    er.register("u4")  # waitlist pos2
+
+    er.cancel("u1")  # promotes u3
+    er.cancel("u2")  # promotes u4
+
+    snap = er.snapshot()
+    assert snap["registered"] == ["u3", "u4"]
+    assert snap["waitlist"] == []
+
+"""Ensures waitlist reorders correctly after a removal"""
+def test_waitlisted_user_cancels_before_promotion():
+    er = EventRegistration(capacity=1)
+    er.register("u1")
+    er.register("u2")  # waitlist pos1
+    er.register("u3")  # waitlist pos2
+
+    er.cancel("u2")  # u2 cancels before promotion
+
+    assert er.status("u2") == UserStatus("none")
+    assert er.status("u3") == UserStatus("waitlisted", 1)
+
+    snap = er.snapshot()
+    assert snap["registered"] == ["u1"]
+    assert snap["waitlist"] == ["u3"]
+
+"""Directly tests my AC6"""
+def test_query_unknown_user_returns_none():
+    er = EventRegistration(capacity=2)
+    er.register("u1")
+    assert er.status("unknown") == UserStatus("none")
+
+"""Ensures correct error handling"""
+def test_cancel_unknown_user_raises_notfound():
+    er = EventRegistration(capacity=2)
+    er.register("u1")
+    with pytest.raises(NotFound):
+        er.cancel("unknown_user")
+
+def test_multiple_promotions_and_queries():
+    er = EventRegistration(capacity=2)
+    er.register("u1")
+    er.register("u2")
+    er.register("u3")  # waitlist pos1
+    er.register("u4")  # waitlist pos2
+
+    er.cancel("u1")  # promotes u3
+    assert er.status("u3") == UserStatus("registered")
+    assert er.status("u4") == UserStatus("waitlisted", 1)
+
+    er.cancel("u2")  # promotes u4
+    assert er.status("u4") == UserStatus("registered")
+    snap = er.snapshot()
+    assert snap["waitlist"] == []
+    assert snap["registered"] == ["u3", "u4"]
+
+This is my tests.py code. 
+Can you tell me if:
+A test fails, determine whether the failure stems from:
+• An implementation issue, or
+• A missing or unclear requirement.}
+Response #3: {Yes! Let’s go through your `tests.py` systematically and examine **possible reasons a test might fail**, and whether the failure would likely come from **implementation issues** versus **missing/unclear requirements**.
+
+---
+
+## **1. `test_register_until_capacity_then_waitlist_fifo_positions`**
+
+**What it tests:**
+
+* Registration until capacity is reached
+* Waitlist placement and FIFO ordering
+
+**Likely cause of failure:**
+
+* **Implementation issue**: if `register()` does not correctly check capacity or append to `_waitlist` in order.
+* **Requirements are clear**, so failure would **not** indicate missing requirements.
+
+---
+
+## **2. `test_cancel_registered_promotes_earliest_waitlisted_fifo`**
+
+**What it tests:**
+
+* Cancel a registered user
+* Promote the earliest waitlisted user
+* Verify new statuses
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * `cancel()` might not promote correctly
+  * Or the wrong waitlisted user gets promoted
+* Requirements clearly specify FIFO promotion, so failure points to **implementation error**.
+
+---
+
+## **3. `test_duplicate_register_raises_for_registered_and_waitlisted`**
+
+**What it tests:**
+
+* Duplicate prevention across both registered and waitlisted users
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * If the system only checks `_registered` for duplicates but not `_waitlist`
+* Requirements already specify "prevent duplicate users anywhere," so failure is **implementation problem**, not missing requirement.
+
+---
+
+## **4. `test_waitlisted_cancel_removes_and_updates_positions`**
+
+**What it tests:**
+
+* Cancel a waitlisted user
+* Verify positions update for remaining waitlist
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * If `_waitlist.remove()` works but positions aren’t recalculated for status queries
+* Requirements expect FIFO behavior, so failure is **implementation bug**.
+
+---
+
+## **5. `test_capacity_zero_all_waitlisted_and_promotion_never_happens`**
+
+**What it tests:**
+
+* Capacity = 0 → all users go to waitlist
+* Cancel unknown raises `NotFound`
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * If `register()` allows anyone to become registered even when capacity=0
+  * If `cancel("missing")` does not raise `NotFound`
+* Requirements clearly specify behavior, so failure is **implementation error**.
+
+---
+
+## **6. `test_reregister_after_cancel`**
+
+**What it tests:**
+
+* Cancel removes user completely
+* User can re-register after cancellation
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * If `cancel()` leaves user in `_registered` or `_waitlist`
+  * Duplicate detection incorrectly prevents re-registration
+
+* Requirements cover re-registration implicitly (“Users attempting to re-register after canceling”), so failure points to **implementation problem**.
+
+---
+
+## **7. `test_multiple_cancellations_sequence`**
+
+**What it tests:**
+
+* Multiple sequential cancellations
+* Promotions occur correctly
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * Promotions may not handle multiple sequential cancellations correctly
+  * Waitlist could get reordered incorrectly
+
+* Requirements cover sequential cancellations, so failure is **implementation problem**, not missing requirement.
+
+---
+
+## **8. `test_waitlisted_user_cancels_before_promotion`**
+
+**What it tests:**
+
+* Waitlist user cancels before promotion
+* Remaining waitlist updates positions
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * `cancel()` may remove the user but `status()` may report wrong position
+* Requirements specify correct reordering, so failure is **implementation error**.
+
+---
+
+## **9. `test_query_unknown_user_returns_none`**
+
+**What it tests:**
+
+* Querying a user not in the system
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * If `status()` incorrectly returns `"waitlisted"` or `"registered"` for unknown users
+* AC6 defines behavior clearly, so failure is **implementation problem**.
+
+---
+
+## **10. `test_cancel_unknown_user_raises_notfound`**
+
+**What it tests:**
+
+* Cancelling a non-existent user raises `NotFound`
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * `cancel()` might silently ignore unknown users instead of raising
+* Requirement is implied but not explicitly clear in your original handout; depending on your interpretation, could be **unclear requirement**. Most grading scripts expect `NotFound`, so failure is **likely an implementation issue**.
+
+---
+
+## **11. `test_multiple_promotions_and_queries`**
+
+**What it tests:**
+
+* Sequential promotions and queries during state transitions
+* Complex edge case
+
+**Likely cause of failure:**
+
+* **Implementation issue**:
+
+  * Promotion order or waitlist indexing incorrect
+  * `status()` may not reflect immediate promotion after `cancel()`
+
+* Requirements are explicit about deterministic promotion and status queries, so failure = **implementation error**.
+
+---
+
+# ✅ **Summary Table**
+
+| Test                                                          | Likely Failure Cause                 | Notes                                           |
+| ------------------------------------------------------------- | ------------------------------------ | ----------------------------------------------- |
+| test_register_until_capacity_then_waitlist_fifo_positions     | Implementation                       | Capacity/check or waitlist append               |
+| test_cancel_registered_promotes_earliest_waitlisted_fifo      | Implementation                       | Wrong promotion order                           |
+| test_duplicate_register_raises_for_registered_and_waitlisted  | Implementation                       | Duplicate detection across waitlist             |
+| test_waitlisted_cancel_removes_and_updates_positions          | Implementation                       | Waitlist position not updated                   |
+| test_capacity_zero_all_waitlisted_and_promotion_never_happens | Implementation                       | Capacity=0 handling                             |
+| test_reregister_after_cancel                                  | Implementation                       | Cancel may not fully remove user                |
+| test_multiple_cancellations_sequence                          | Implementation                       | Promotions after multiple cancels               |
+| test_waitlisted_user_cancels_before_promotion                 | Implementation                       | Waitlist reorder after removal                  |
+| test_query_unknown_user_returns_none                          | Implementation                       | Status reporting                                |
+| test_cancel_unknown_user_raises_notfound                      | Implementation / Unclear requirement | Some handouts may not specify NotFound behavior |
+| test_multiple_promotions_and_queries                          | Implementation                       | Sequential promotion / query consistency        |
+
+---
+
+✅ **Key Takeaway:**
+
+* **All your tests align with requirements**.
+* **Failures are almost always due to implementation issues** — except `cancel_unknown_user`, which depends on whether the handout explicitly says to raise `NotFound`.
+
+---
+
+If you want, I can also **give a strategy to debug any failing test quickly** in your current `solution.py` so you can fix implementation issues efficiently.
+
+Do you want me to do that?
+}
 --------------------------------------------------
 
 Prompt #4: {}
