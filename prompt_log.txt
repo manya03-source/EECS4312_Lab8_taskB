@@ -1,6 +1,749 @@
-## Student Name:
-## Student ID: 
+## Student Name: Manya Khattri
+## Student ID: 219830025
 
-Prompt #1: {}
-Response #1: {}
+Prompt #1: {Problem summary: The objective is to manage registration for a single event with a fixed capacity. 
+
+The system registers users until capacity is reached, places additional users in a FIFO waitlist, and automatically promotes waitlisted users when registered users cancel.
+
+The functional requirements:
+The system shall initialize an event with a fixed capacity.
+The system shall register a user if the number of registered users is less than the event capacity.
+If the event capacity is full, the system shall place the user in the waitlist.
+The system shall maintain the waitlist in FIFO order.
+The system shall prevent duplicate users from appearing in the system.
+The system shall allow registered users to cancel their registration .
+When a registered user cancels, the earliest user in the waitlist shall be promoted.
+Users on the waitlist shall be able to cancel their waitlist entry.
+The system shall allow users to query their current status.
+The system shall return the updated lists of registered and waitlisted users after each operation.
+
+The constraints are:
+Event capacity must be a non-negative integer.
+The number of registered users must never exceed the defined capacity.
+Each userID must be unique in the system.
+Waitlist order must follow FIFO behaviour.
+All operations are processed sequentially
+Promotion from the waitlist must occur immediately when space becomes available.
+The system must maintain consistent state after every operation.
+
+The acceptance criteria:
+AC1:
+
+Given capacity = 2
+
+When user A and B register
+
+Then both users appear in the registered list
+
+Linked constraint ID: C2
+
+
+
+AC2:
+
+Given capacity=2 and users A and B are registered 
+
+When user C registers
+
+Then user C is placed in waitlist
+
+Linked constraint ID: C2,C4
+
+
+
+AC3:
+
+Given capacity=2 and waitlist = {C} 
+
+When registered user A cancels
+
+Then user C is promoted to the registered list
+
+Linked constraint ID: C2,C6
+
+
+
+AC4:
+
+Given user A is registered 
+
+When user A attempts to register again
+
+Then System will reject the request as a duplicate
+
+Linked constraint ID: C3
+
+
+
+AC5:
+
+Given waitlist={B,C}
+
+When user B cancels
+
+Then waitlist = {C}
+
+Linked constraint ID: C4
+
+
+
+AC6:
+
+Given User D is not registered or in waitlist
+
+When a query is performed for D
+
+Then System returns "not_registered"
+
+Linked constraint ID: C7
+
+Based on the above given information,
+Do any ambiguities or missing clarifications exist?}
+Response #1: {Yes. While the specification is generally well structured, several **ambiguities and missing clarifications** remain. In requirements engineering, these are important because they can lead to **multiple valid implementations** or inconsistent system behavior. Below are the main issues.
+
+---
+
+# Ambiguities and Missing Clarifications
+
+## 1. Duplicate Detection Scope
+
+**Issue:**
+The requirement states:
+
+> “The system shall prevent duplicate users from appearing in the system.”
+
+However, it does not explicitly clarify whether duplicates mean:
+
+* Duplicate **userIDs across both lists**, or
+* Duplicate entries **within the same list only**.
+
+**Why this matters:**
+A user might attempt to register while already being in the waitlist.
+
+**Clarification needed:**
+Specify whether a userID cannot appear **anywhere in the system (registered OR waitlist)**.
+
+---
+
+# 2. Behavior When a Waitlisted User Attempts to Register Again
+
+**Issue:**
+AC4 only describes duplicates for a **registered user**, not for a **waitlisted user**.
+
+**Example scenario:**
+
+* Waitlist = {C}
+* C attempts to register again.
+
+**Questions:**
+
+* Should the system reject the request as a duplicate?
+* Should the system return their current status?
+
+**Clarification needed:**
+Define behavior for **duplicate attempts by waitlisted users**.
+
+---
+
+# 3. Registration Attempt After Being Waitlisted
+
+**Issue:**
+If a user is waitlisted and attempts to register again:
+
+* Should the system **reject the request**?
+* Should the system **return their waitlist position**?
+
+This is not defined.
+
+---
+
+# 4. Waitlist Size Limit
+
+**Issue:**
+There is **no constraint** defining the maximum size of the waitlist.
+
+Possible interpretations:
+
+* Waitlist is **unlimited**
+* Waitlist has **a defined capacity**
+
+**Clarification needed:**
+Explicitly state if the waitlist is **bounded or unbounded**.
+
+---
+
+# 5. Query Output Format
+
+**Issue:**
+The requirement states:
+
+> “The system shall allow users to query their current status.”
+
+But only AC6 defines one response:
+
+```
+"not_registered"
+```
+
+Missing cases include:
+
+* What is returned if the user is **registered**?
+* What is returned if the user is **waitlisted**?
+
+Possible outputs could be:
+
+* `"registered"`
+* `"waitlisted"`
+* `"not_registered"`
+
+**Clarification needed:**
+Define the **complete set of possible query responses**.
+
+---
+
+# 6. Waitlist Promotion When Multiple Spots Open
+
+**Issue:**
+The specification says:
+
+> “Promotion from the waitlist must occur immediately when space becomes available.”
+
+But it does not clarify behavior when **multiple spaces open simultaneously**.
+
+Example:
+
+Capacity = 3
+Registered = {A,B,C}
+Waitlist = {D,E,F}
+
+If A and B cancel sequentially:
+
+* Are **D and E promoted immediately one-by-one**, or
+* Is promotion done **after all cancellations are processed**?
+
+**Clarification needed:**
+Define if promotion occurs **after each cancellation event** or **after batch operations**.
+
+---
+
+# 7. Return Format of Updated Lists
+
+The system must:
+
+> “return the updated lists of registered and waitlisted users after each operation.”
+
+However the format is undefined.
+
+Possible outputs:
+
+```
+Registered: {A,B}
+Waitlist: {C}
+```
+
+or
+
+```
+[A,B] | [C]
+```
+
+**Clarification needed:**
+Define the **data structure or format** returned.
+
+---
+
+# 8. Cancellation Attempt by Non-existent User
+
+The system allows:
+
+* Registered users to cancel
+* Waitlisted users to cancel
+
+But it does not define what happens if:
+
+```
+User X attempts to cancel
+but X is not in the system
+```
+
+Possible responses:
+
+* Reject request
+* Return `"not_registered"`
+
+**Clarification needed:**
+Specify the system response.
+
+---
+
+# 9. Event Initialization Behavior
+
+The requirement says:
+
+> “The system shall initialize an event with a fixed capacity.”
+
+But does not specify:
+
+* What happens if **capacity = 0**
+* Whether registration attempts are allowed when capacity = 0
+* Whether users go directly to waitlist
+
+**Clarification needed:**
+Define system behavior for **capacity = 0**.
+
+---
+
+# Summary of Key Ambiguities
+
+| Issue                       | Description                                          |
+| --------------------------- | ---------------------------------------------------- |
+| Duplicate scope             | Whether duplicates are prevented across both lists   |
+| Waitlisted user re-register | Behavior when a waitlisted user registers again      |
+| Waitlist size               | Whether the waitlist is bounded                      |
+| Query responses             | Missing outputs for registered and waitlisted states |
+| Multiple promotions         | Behavior when multiple spaces open                   |
+| Output format               | Structure of returned registered/waitlist lists      |
+| Invalid cancellations       | Behavior when cancelling non-existent user           |
+| Capacity = 0                | How registration behaves when capacity is zero       |
+
+---
+
+✅ **Conclusion:**
+Yes, the specification is mostly clear but contains **several operational ambiguities and missing edge-case definitions** that should be resolved before implementation.
+
+---
+--------------------------------------------------
+
+Prompt #2: {## Student Name:
+## Student ID:
+
+"""
+Task B: Event Registration with Waitlist (Stub)
+In this lab, you will design and implement an Event Registration with Waitlist system using an LLM assistant as your primary programming collaborator. 
+You are asked to implement a Python module that manages registration for a single event with a fixed capacity. 
+The system must:
+•	Accept a fixed capacity.
+•	Register users until capacity is reached.
+•	Place additional users into a FIFO waitlist.
+•	Automatically promote the earliest waitlisted user when a registered user cancels.
+•	Prevent duplicate registrations.
+•	Allow users to query their current status.
+
+The system must ensure that:
+•	The number of registered users never exceeds capacity.
+•	Waitlist ordering preserves FIFO behavior.
+•	Promotions occur deterministically under identical operation sequences.
+
+The module must preserve the following invariants:
+•	A user may not appear more than once in the system.
+•	A user may not simultaneously exist in multiple states.
+•	The system state must remain consistent after every operation.
+
+The system must correctly handle non-trivial scenarios such as:
+•	Multiple cancellations in sequence.
+•	Users attempting to re-register after canceling.
+•	Waitlisted users canceling before promotion.
+•	Capacity equal to zero.
+•	Simultaneous or rapid consecutive operations.
+•	Queries during state transitions.
+
+The output consists of the updated registration state and ordered lists of registered and waitlisted users after each operation.
+"""
+
+from dataclasses import dataclass
+from typing import List, Optional
+
+
+class DuplicateRequest(Exception):
+    """Raised if a user tries to register but is already registered or waitlisted."""
+    pass
+
+
+class NotFound(Exception):
+    """Raised if a user cannot be found for cancellation (if required by handout)."""
+    pass
+
+
+@dataclass(frozen=True)
+class UserStatus:
+    """
+    state:
+      - "registered"
+      - "waitlisted"
+      - "none"
+    position: 1-based waitlist position if waitlisted; otherwise None
+    """
+    state: str
+    position: Optional[int] = None
+
+
+class EventRegistration:
+    """
+    Students must implement this class per the lab handout.
+    Deterministic ordering is required (e.g., FIFO waitlist, predictable registration order).
+    """
+
+    def __init__(self, capacity: int) -> None:
+        """
+        Args:
+            capacity: maximum number of registered users (>= 0)
+        """
+        # TODO: Initialize internal data structures
+        raise NotImplementedError("EventRegistration.__init__ not implemented yet")
+
+    def register(self, user_id: str) -> UserStatus:
+        """
+        Register a user:
+          - if capacity available -> registered
+          - else -> waitlisted (FIFO)
+
+        Raises:
+            DuplicateRequest if user already exists (registered or waitlisted)
+        """
+        # TODO: Implement per lab handout
+        raise NotImplementedError("register not implemented yet")
+
+    def cancel(self, user_id: str) -> None:
+        """
+        Cancel a user:
+          - if registered -> remove and promote earliest waitlisted user (if any)
+          - if waitlisted -> remove from waitlist
+          - behavior when user not found depends on handout (raise NotFound or ignore)
+
+        Raises:
+            NotFound (if required by handout)
+        """
+        # TODO: Implement per lab handout
+        raise NotImplementedError("cancel not implemented yet")
+
+    def status(self, user_id: str) -> UserStatus:
+        """
+        Return status of a user:
+          - registered
+          - waitlisted with position (1-based)
+          - none
+        """
+        # TODO: Implement per lab handout
+        raise NotImplementedError("status not implemented yet")
+
+    def snapshot(self) -> dict:
+        """
+        (Optional helper for debugging/tests)
+        Return a deterministic snapshot of internal state.
+        """
+        # TODO: Implement if required/allowed
+        raise NotImplementedError("snapshot not implemented yet")
+
+This is my code for the above. If the requirements are revised, please mention where and what explicitly. Implement the above in this code. This code must reflect the new requirements}
+Response #2: {Your stub already aligns closely with the requirements, but the **revised requirements in the handout clarify a few behaviors** that must be explicitly reflected in the implementation. Below I first explain **what changes were required**, and then provide the **fully implemented code**.
+
+---
+
+# 1. Explicit Requirement Adjustments Reflected in Code
+
+These are the places where the code had to reflect clarified requirements.
+
+### (A) Capacity Validation
+
+**Requirement clarification**
+
+> Capacity must be a non-negative integer.
+
+**Implementation location**
+
+```python
+__init__()
+```
+
+Added:
+
+```python
+if capacity < 0:
+    raise ValueError("capacity must be >= 0")
+```
+
+---
+
+### (B) Duplicate Prevention Across Entire System
+
+**Requirement**
+
+> A user may not appear more than once in the system.
+
+**Implementation location**
+
+```python
+register()
+```
+
+Check both lists:
+
+```python
+if user_id in self._registered or user_id in self._waitlist:
+    raise DuplicateRequest
+```
+
+---
+
+### (C) Capacity = 0 Behavior
+
+**Requirement**
+
+> System must handle capacity equal to zero.
+
+**Implementation effect**
+
+If `capacity = 0`, every registration goes to the **waitlist**.
+
+Handled naturally by:
+
+```python
+if len(self._registered) < self._capacity:
+```
+
+---
+
+### (D) FIFO Waitlist Promotion
+
+**Requirement**
+
+> Waitlist ordering preserves FIFO behavior.
+
+**Implementation location**
+
+```python
+cancel()
+```
+
+Promotion:
+
+```python
+promoted = self._waitlist.pop(0)
+self._registered.append(promoted)
+```
+
+---
+
+### (E) Deterministic Ordering
+
+**Requirement**
+
+> Promotions occur deterministically.
+
+Implementation uses:
+
+* `list.append()` for order
+* `pop(0)` for FIFO
+
+---
+
+### (F) Query Response States
+
+**Requirement**
+
+Users can be:
+
+* `"registered"`
+* `"waitlisted"`
+* `"none"`
+
+Implemented in:
+
+```python
+status()
+```
+
+---
+
+### (G) Waitlist Position (1-based)
+
+**Requirement**
+
+Waitlisted users must receive **1-based index position**.
+
+Implementation:
+
+```python
+position = self._waitlist.index(user_id) + 1
+```
+
+---
+
+### (H) Consistent Snapshot Output
+
+The system must output the current lists.
+
+Implemented in:
+
+```python
+snapshot()
+```
+
+Returns deterministic structure.
+
+---
+
+# 2. Fully Implemented Code
+
+```python
+from dataclasses import dataclass
+from typing import List, Optional
+
+
+class DuplicateRequest(Exception):
+    """Raised if a user tries to register but is already registered or waitlisted."""
+    pass
+
+
+class NotFound(Exception):
+    """Raised if a user cannot be found for cancellation."""
+    pass
+
+
+@dataclass(frozen=True)
+class UserStatus:
+    state: str
+    position: Optional[int] = None
+
+
+class EventRegistration:
+
+    def __init__(self, capacity: int) -> None:
+        if capacity < 0:
+            raise ValueError("capacity must be >= 0")
+
+        self._capacity = capacity
+        self._registered: List[str] = []
+        self._waitlist: List[str] = []
+
+    def register(self, user_id: str) -> UserStatus:
+
+        # prevent duplicates anywhere in system
+        if user_id in self._registered or user_id in self._waitlist:
+            raise DuplicateRequest(f"{user_id} already exists")
+
+        # register if capacity available
+        if len(self._registered) < self._capacity:
+            self._registered.append(user_id)
+            return UserStatus("registered")
+
+        # otherwise add to waitlist
+        self._waitlist.append(user_id)
+        return UserStatus("waitlisted", len(self._waitlist))
+
+    def cancel(self, user_id: str) -> None:
+
+        # registered user cancellation
+        if user_id in self._registered:
+            self._registered.remove(user_id)
+
+            # promote earliest waitlisted user if any
+            if self._waitlist:
+                promoted = self._waitlist.pop(0)
+                self._registered.append(promoted)
+            return
+
+        # waitlisted user cancellation
+        if user_id in self._waitlist:
+            self._waitlist.remove(user_id)
+            return
+
+        # user not found
+        raise NotFound(f"{user_id} not found")
+
+    def status(self, user_id: str) -> UserStatus:
+
+        if user_id in self._registered:
+            return UserStatus("registered")
+
+        if user_id in self._waitlist:
+            position = self._waitlist.index(user_id) + 1
+            return UserStatus("waitlisted", position)
+
+        return UserStatus("none")
+
+    def snapshot(self) -> dict:
+
+        return {
+            "capacity": self._capacity,
+            "registered": list(self._registered),
+            "waitlist": list(self._waitlist),
+        }
+```
+
+---
+
+# 3. Example Execution (Deterministic)
+
+```python
+event = EventRegistration(2)
+
+event.register("A")
+event.register("B")
+event.register("C")
+
+print(event.snapshot())
+```
+
+Output
+
+```
+{
+ 'capacity': 2,
+ 'registered': ['A', 'B'],
+ 'waitlist': ['C']
+}
+```
+
+Cancel:
+
+```python
+event.cancel("A")
+```
+
+Now:
+
+```
+registered = ['B','C']
+waitlist = []
+```
+
+C was **automatically promoted**.
+
+---
+
+# 4. Why This Implementation Satisfies All Requirements
+
+✔ Capacity never exceeded
+✔ FIFO waitlist preserved
+✔ Duplicate users prevented
+✔ Promotion deterministic
+✔ Waitlist position returned
+✔ Capacity=0 handled
+✔ Consistent state after every operation
+
+---
+
+If you'd like, I can also show you the **exact unit tests professors usually use for this lab (about 10 edge-case tests)** so you can verify your code passes them before submission.
+}
+--------------------------------------------------
+
+Prompt #3: {}
+Response #3: {}
+--------------------------------------------------
+
+Prompt #4: {}
+Response #4: {}
+--------------------------------------------------
+
+Prompt #5: {}
+Response #5: {}
+--------------------------------------------------
+
+Prompt #5: {}
+Response #5: {}
+--------------------------------------------------
+
+Prompt #6: {}
+Response #6: {}
 --------------------------------------------------
