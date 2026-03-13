@@ -1463,12 +1463,897 @@ Adding **2 constraints and 3–4 edge cases** would likely push it to **full mar
 
 --------------------------------------------------
 
-Prompt #5: 
-LLM Response: 
+Prompt #5: This is my solution.py file:
+## Student Name: Manya Khattri
+## Student ID: 219830025
+
+"""
+Task B: Event Registration with Waitlist (Stub)
+In this lab, you will design and implement an Event Registration with Waitlist system using an LLM assistant as your primary programming collaborator. 
+You are asked to implement a Python module that manages registration for a single event with a fixed capacity. 
+The system must:
+•	Accept a fixed capacity.
+•	Register users until capacity is reached.
+•	Place additional users into a FIFO waitlist.
+•	Automatically promote the earliest waitlisted user when a registered user cancels.
+•	Prevent duplicate registrations.
+•	Allow users to query their current status.
+
+The system must ensure that:
+•	The number of registered users never exceeds capacity.
+•	Waitlist ordering preserves FIFO behavior.
+•	Promotions occur deterministically under identical operation sequences.
+
+The module must preserve the following invariants:
+•	A user may not appear more than once in the system.
+•	A user may not simultaneously exist in multiple states.
+•	The system state must remain consistent after every operation.
+
+The system must correctly handle non-trivial scenarios such as:
+•	Multiple cancellations in sequence.
+•	Users attempting to re-register after canceling.
+•	Waitlisted users canceling before promotion.
+•	Capacity equal to zero.
+•	Simultaneous or rapid consecutive operations.
+•	Queries during state transitions.
+
+The output consists of the updated registration state and ordered lists of registered and waitlisted users after each operation.
+"""
+
+from dataclasses import dataclass
+from typing import List, Optional
+
+
+class DuplicateRequest(Exception):
+    """Raised if a user tries to register but is already registered or waitlisted."""
+    pass
+
+
+class NotFound(Exception):
+    """Raised if a user cannot be found for cancellation (if required by handout)."""
+    pass
+
+
+@dataclass(frozen=True)
+class UserStatus:
+    """
+    state:
+      - "registered"
+      - "waitlisted"
+      - "none"
+    position: 1-based waitlist position if waitlisted; otherwise None
+    """
+    state: str
+    position: Optional[int] = None
+    explanation: Optional[str] = None  # Optional field for additional info (e.g., error messages)
+
+
+class EventRegistration:
+    """
+    Students must implement this class per the lab handout.
+    Deterministic ordering is required (e.g., FIFO waitlist, predictable registration order).
+    """
+
+    def __init__(self, capacity: int) -> None:
+        """
+        Args:
+            capacity: maximum number of registered users (>= 0)
+        """
+        # TODO: Initialize internal data structures
+        if capacity < 0:
+            raise ValueError("Capacity must be non-negative")
+        self._capacity = capacity
+        self._registered: List[str] = []  # List of registered user IDs
+        self._waitlist: List[str] = []    # List of waitlisted user IDs
+
+    def register(self, user_id: str) -> UserStatus:
+        """
+        Register a user:
+          - if capacity available -> registered
+          - else -> waitlisted (FIFO)
+
+        Raises:
+            DuplicateRequest if user already exists (registered or waitlisted)
+        """
+        # TODO: Implement per lab handout
+        if user_id in self._registered or user_id in self._waitlist:
+            raise DuplicateRequest(f"User {user_id} already exists")
+        
+        if len(self._registered) < self._capacity:
+            self._registered.append(user_id)
+            return UserStatus(
+                state="registered",
+                explanation="User registered successfully"
+            )
+        self._waitlist.append(user_id)
+        return UserStatus(
+            state="waitlisted", 
+            position=len(self._waitlist),
+            explanation="Event Full, User added to waitlist"
+        )
+
+    def cancel(self, user_id: str) -> None:
+        """
+        Cancel a user:
+          - if registered -> remove and promote earliest waitlisted user (if any)
+          - if waitlisted -> remove from waitlist
+          - behavior when user not found depends on handout (raise NotFound or ignore)
+
+        Raises:
+            NotFound (if required by handout)
+        """
+        # TODO: Implement per lab handout
+        if user_id in self._registered:
+            self._registered.remove(user_id)
+            explanation = f"User {user_id} cancelled registration"
+            if self._waitlist:
+                promoted_user = self._waitlist.pop(0)
+                self._registered.append(promoted_user)
+                explanation += (
+                    f" Waitlisted user {promoted_user} promoted to registered"
+                )
+            return explanation
+        if user_id in self._waitlist:
+            self._waitlist.remove(user_id)
+            return f"User {user_id} removed from waitlist"
+        raise NotFound(
+            f"Cancellation failed: User {user_id} not found in registered or waitlist"
+        )
+
+    def status(self, user_id: str) -> UserStatus:
+        """
+        Return status of a user:
+          - registered
+          - waitlisted with position (1-based)
+          - none
+        """
+        # TODO: Implement per lab handout
+        if user_id in self._registered:
+            return UserStatus(
+                state="registered",
+                explanation="User is currently registered"
+            )
+        if user_id in self._waitlist:
+            position = self._waitlist.index(user_id) + 1
+            return UserStatus(state="waitlisted", position=position, explanation=f"User is waitlisted at position {position}")
+        return UserStatus(state="none", explanation="User not found in registered or waitlist")
+
+
+    def snapshot(self) -> dict:
+        """
+        (Optional helper for debugging/tests)
+        Return a deterministic snapshot of internal state.
+        """
+        # TODO: Implement if required/allowed
+        return {
+            "capacity": self._capacity,
+            "registered": list(self._registered),
+            "waitlist": list(self._waitlist)
+        }
+
+These are my requirements I need to implement:
+Requirements.txt
+##Name: Manya Khattri
+##Student ID: 219830025
+
+##1 Problem Understanding
+System purpose:
+The system manages reminders and event registrations while automatically resolving scheduling conflicts and maintaining deterministic behavior. It is designed to reduce cognitive load for busy users while also providing clear explanations for system decisions when required.
+
+Inputs to the system:
+-> Reminder creation requests (time and reminder name)
+-> Reminder updates or snooze requests
+-> Reminder cancellation requests
+-> Event registration requests
+-> Event cancellation requests
+-> Event capacity values
+-> User interaction commands
+Outputs produced by the system:
+-> Ordered reminder schedules
+-> Registration confirmations
+-> Waitlist promotion notifications
+-> System explanations for automatic decisions
+-> Error messages for invalid or duplicate requests
+
+##2 Assumptions
+A1: The system receives valid timestamps for reminders and registrations.
+A2: Users interact with the system through a reliable interface that correctly sends their requests.
+A3: Reminder names or event identifiers are unique enough to differentiate between reminders.
+A4: Event capacity values are predefined and provided to the system before registrations occur.
+A5: Users may frequently modify reminders (e.g., snooze or cancel them).
+A6: The system must operate deterministically so that identical inputs always produce the same outputs.
+
+##3 Functional Requirements
+FR1: The system shall allow users to create reminders with a timestamp and description.
+FR2: The system shall display reminders in a deterministic order when multiple reminders share the same timestamp.
+FR3: The system shall automatically resolve reminder conflicts without requiring manual user intervention.
+FR4: The system shall allow users to register for events and maintain a waitlist when the event capacity is full.
+FR5: The system shall automatically promote users from the waitlist when an event slot becomes available.
+FR6: The system shall provide explanations when reminders are skipped, moved, or when waitlist promotions occur.
+
+##4 System Constraints
+--> C1:
+Derived from persona attribute: Jane: Need for predictable and stable ordering of reminders.
+Constraint: The system must always produce deterministic ordering when multiple reminders share the same timestamp.
+--> C2:
+Derived from persona attribute: Jane: Need to avoid notification overload.
+Constraint: The system must avoid generating duplicate or excessive notifications for the same reminder or event.
+--> C3:
+Derived from persona attribute: Jane: Trusts the system to resolve conflicts automatically.
+Constraint: The system must automatically resolve scheduling conflicts without requiring manual intervention.
+--> C4:
+Derived from persona attribute: Mo: Requires deterministic behavior under ties.
+Constraint: The system must apply a deterministic rule when multiple valid outcomes exist.
+--> C5:
+Derived from persona attribute: Mo: Needs clear explanations for system decisions.
+Constraint: The system must provide explanations when reminders are moved, skipped, or when waitlist promotions occur.
+--> C6:
+Derived from persona attribute: Mo: Pain point: silent failures.
+Constraint: The system must return a clear error message when an invalid or duplicate action is requested instead of silently ignoring it.
+
+##5 Acceptance Criteria
+-->AC1:
+Given multiple reminders with identical timestamps
+When the system displays reminders
+Then reminders must appear in deterministic order.
+Linked Constraint ID(s): C1, C4
+-->AC2:
+Given two reminders conflict in time
+When the system processes the schedule
+Then the system must automatically resolve the conflict without user intervention.
+Linked Constraint ID(s): C3
+-->AC3:
+Given a reminder is moved or skipped due to a conflict
+When the system processes the schedule
+Then the system must provide a clear explanation to the user.
+Linked Constraint ID(s): C5
+-->AC4:
+Given a user attempts to register for a full event
+When the request is processed
+Then the user must be placed on the waitlist.
+Linked Constraint ID(s): C3
+-->AC5:
+Given a duplicate reminder request is submitted
+When the system processes the request
+Then the duplicate request must be rejected with an error message.
+Linked Constraint ID(s): C6
+-->AC6:
+Given multiple notifications are triggered for the same reminder
+When the system generates notifications
+Then only one notification must be sent.
+Linked Constraint ID(s): C2
+
+##6 Edge Cases
+-->EC1:
+Description: Two reminders occur at the exact same timestamp.
+Expected system behavior: The system orders reminders deterministically according to the tie breaking rule.
+-->EC2:
+Description: Event registration occurs when event capacity is zero.
+Expected system behavior: The system places the user on the waitlist instead of registering them.
+-->EC3:
+Description: A duplicate reminder request is submitted.
+Expected system behavior: The system rejects the duplicate request and returns an error message.
+
+##7 Traceability
+FR1 → C1 → AC1
+FR2 → C1, C4 → AC1
+FR3 → C3 → AC2
+FR4 → C3 → AC4
+FR5 → C3 → AC4
+FR6 → C5 → AC3
+
+##8 Revision Notes
+--> Revision Note 1:
+Requirement Added: C7 - Derived from persona attribute: Mo - Need for deterministic system behavior under ties. Constraint: When multiple reminders share the same timestamp, the system must apply a deterministic tie breaking rule (e.g., alphabetical ordering by reminder name).
+Reason: Without this, AC1 cannot be implemented consistently.
+Action: Added C7 and updated AC1 to reference C7.
+--> Revision Note 2: 
+Requirement Added: C8 - Derived from persona attribute: Mo - Pain point: inconsistent responses across repeated scenarios. Constraint: The system must produce identical outputs when the same inputs are processed multiple times.
+Reason: This ensures that the system behaves predictably and builds user trust.
+Action: Accepted this addition
+--> Revision Note 3:
+Requirement Updated: FR3: The system shall automatically resolve reminder conflicts by applying a deterministic tie - breaking rule or adjusting reminder ordering while maintaining deterministic behavior.
+Reason: AC3 refers to skipped or moved reminders, your spec assumes movement / skip behavior but never defines the policy.
+Action: Updated FR3
+--> Revision Note 4:
+Requirement Updated: C2: The system must ensure only one notification is generated per reminder event.
+Reason: "Avoid excessive notifications" is vague and could be interpreted in different ways. This clarifies the requirement to ensure consistent implementation.
+Action: Updated C2 for clarity.
+--> Revision Note 5:
+Requirement Added: EC4 - Description: Multiple users exist on the waitlist when a slot becomes available. Expected system behavior: The system promotes users in deterministic order (e.g., first- come - first - served).
+Reason: In case multiple users are on the waitlist, the system needs a clear policy for promotion to ensure fairness and predictability.
+Action: Added EC4 to cover this scenario.
+--> Revision Note 6:
+Requirement added: EC5 - Description: A reminder is updated or snoozed to a timestamp that conflicts with another reminder. Expected system behavior: The system resolves the conflict using the deterministic tie- breaking rule and provides an explanation.
+Reason: Mo frequently updates reminders, and this scenario could lead to conflicts that need to be resolved while maintaining deterministic behavior.
+Action: Added EC5 to cover this scenario.
+--> Revision Note 7:
+Requirement Added: EC6 - Description: A user attempts to cancel a reminder that does not exist. Expected system behavior: The system returns a clear error message instead of silently ignoring the request.
+Reason: Common edge case that could lead to user confusion if not handled properly.
+Action: Added EC6 to ensure robust error handling.
+--> Revision Note 8:
+Requirement Added: EC7 - Description: A user attempts to register multiple times for the same event. Expected system behavior: The system rejects the duplicate registration and provides an explanation.
+Reason: we handled duplicate reminders but not duplicate event registrations, which is a similar issue that needs to be addressed for consistency.
+Action: Added EC7 to cover this scenario and ensure consistent handling of duplicates across different types of requests.
+--> Revision Note 9:
+Requirement Updated: Traceeability: Updated traceability to include new requirements and edge cases added in revisions.
+FR6 → C5 → AC3
+FR1 → C6 → AC5
+FR2 → C2 → AC6
+Reason: To ensure that all requirements, constraints, and acceptance criteria are properly linked for traceability.
+Action: Updated traceability section to reflect changes from revisions.
+
+Is there anything not covered? help me
+LLM Response: Your **`solution.py` already satisfies most of the requirements** related to the *event registration + waitlist system*. However, some requirements in your `Requirements.txt` are **not implemented or only partially implemented**, mainly because parts of the specification describe a **reminder system**, while your Python module only implements **event registration**.
+
+Below is a precise audit comparing **Requirements → Implementation**.
+
+---
+
+# 1. Requirements That ARE Correctly Implemented
+
+### FR4 – Event registration with waitlist
+
+Requirement:
+
+> The system shall allow users to register for events and maintain a waitlist when the event capacity is full.
+
+✔ Implemented in `register()`:
+
+```python
+if len(self._registered) < self._capacity:
+    self._registered.append(user_id)
+else:
+    self._waitlist.append(user_id)
+```
+
+Behavior:
+
+* Registers until capacity
+* Waitlists afterward
+
+Also covers **Edge Case EC2 (capacity = 0)** because:
+
+```python
+len(self._registered) < self._capacity
+```
+
+will always be false → user goes directly to waitlist.
+
+---
+
+### FR5 – Automatic promotion from waitlist
+
+Requirement:
+
+> Promote earliest waitlisted user when slot available.
+
+✔ Implemented in `cancel()`:
+
+```python
+promoted_user = self._waitlist.pop(0)
+self._registered.append(promoted_user)
+```
+
+This satisfies:
+
+* FIFO ordering
+* deterministic promotion
+
+Also satisfies:
+
+**EC4 – Multiple users on waitlist**
+
+FIFO ensures deterministic promotion.
+
+---
+
+### C4 / C7 – Deterministic behavior
+
+Requirement:
+
+> System must behave deterministically.
+
+✔ Achieved via:
+
+* Ordered Python lists
+* FIFO waitlist
+* deterministic promotion
+
+Operations always produce the same result for the same sequence.
+
+---
+
+### C6 / EC7 – Duplicate registration rejection
+
+Requirement:
+
+> Reject duplicate event registration.
+
+✔ Implemented:
+
+```python
+if user_id in self._registered or user_id in self._waitlist:
+    raise DuplicateRequest(...)
+```
+
+Matches:
+
+* **AC5**
+* **EC7**
+
+---
+
+### EC6 – Cancel non-existing user
+
+Requirement:
+
+> Return error instead of silently ignoring.
+
+✔ Implemented:
+
+```python
+raise NotFound(...)
+```
+
+---
+
+### User status query
+
+✔ Implemented in:
+
+```python
+status()
+```
+
+Returns:
+
+* registered
+* waitlisted with position
+* none
+
+---
+
+### C5 – Provide explanations
+
+✔ Partially implemented.
+
+You added:
+
+```python
+explanation: Optional[str]
+```
+
+And populate it in:
+
+* register()
+* status()
+* cancel()
+
+This satisfies the requirement to **explain system decisions**.
+
+---
+
+# 2. Requirements NOT IMPLEMENTED
+
+These are **missing or outside the scope of your Python module**.
+
+---
+
+# FR1 – Reminder creation
+
+Requirement:
+
+> allow users to create reminders with timestamp
+
+❌ Not implemented.
+
+Your system only supports:
+
+* event registration
+* waitlists
+
+There is **no reminder data structure**.
+
+Example missing components:
+
+```
+create_reminder(time, description)
+update_reminder()
+snooze_reminder()
+```
+
+---
+
+# FR2 – Deterministic ordering of reminders
+
+Requirement:
+
+> order reminders with identical timestamps
+
+❌ Not implemented.
+
+No reminder list or sorting logic exists.
+
+---
+
+# FR3 – Reminder conflict resolution
+
+Requirement:
+
+> resolve reminder conflicts automatically
+
+❌ Not implemented.
+
+No scheduling logic exists.
+
+---
+
+# AC1 / AC2 / AC3
+
+These acceptance criteria relate to **reminders**, so they are not implemented.
+
+---
+
+# C1 – deterministic reminder ordering
+
+❌ Not implemented.
+
+---
+
+# C2 – prevent duplicate notifications
+
+Requirement:
+
+> only one notification per reminder
+
+❌ Not implemented.
+
+No notification system exists.
+
+---
+
+# EC1 – same timestamp reminders
+
+❌ Not implemented.
+
+---
+
+# EC5 – snoozed reminder conflict
+
+❌ Not implemented.
+
+---
+
+# EC3 – duplicate reminder request
+
+❌ Not implemented.
+
+---
+
+# 3. Minor Design Issue in Your Code
+
+Your method signature says:
+
+```python
+def cancel(self, user_id: str) -> None:
+```
+
+But your function **returns strings**.
+
+Example:
+
+```python
+return explanation
+```
+
+This contradicts the return type.
+
+Better version:
+
+```python
+def cancel(self, user_id: str) -> str:
+```
+
+---
+
+# 4. One Improvement to Fully Match Your Spec
+
+Your spec says:
+
+> Provide explanation when waitlist promotion occurs.
+
+You already do this partially, but you could make it clearer:
+
+Example improvement:
+
+```python
+explanation = f"{user_id} cancelled registration."
+
+if self._waitlist:
+    promoted = self._waitlist.pop(0)
+    self._registered.append(promoted)
+    explanation += f" {promoted} promoted from waitlist."
+
+return explanation
+```
+
+---
+
+# 5. Overall Coverage Summary
+
+| Requirement                      | Status                  |
+| -------------------------------- | ----------------------- |
+| FR1 Reminder creation            | ❌ Missing               |
+| FR2 Reminder ordering            | ❌ Missing               |
+| FR3 Reminder conflict resolution | ❌ Missing               |
+| FR4 Event registration           | ✔ Implemented           |
+| FR5 Waitlist promotion           | ✔ Implemented           |
+| FR6 Explanations                 | ✔ Partially implemented |
+| C1 Reminder ordering             | ❌ Missing               |
+| C2 Notification control          | ❌ Missing               |
+| C3 Conflict resolution           | ❌ Missing               |
+| C4 Determinism                   | ✔ Implemented           |
+| C5 Explanation                   | ✔ Implemented           |
+| C6 Error handling                | ✔ Implemented           |
+| EC1 reminder timestamp tie       | ❌ Missing               |
+| EC2 capacity 0                   | ✔ Implemented           |
+| EC3 duplicate reminder           | ❌ Missing               |
+| EC4 FIFO promotion               | ✔ Implemented           |
+| EC5 snooze conflict              | ❌ Missing               |
+| EC6 cancel missing reminder      | ✔ Implemented           |
+| EC7 duplicate event registration | ✔ Implemented           |
+
+---
+
+# 6. Key Insight (Important for Your Lab)
+
+Your **requirements file describes TWO systems**:
+
+1️⃣ Reminder scheduling system
+2️⃣ Event registration system
+
+But **solution.py implements only system #2**.
+
+This is likely **intentional in the lab**, because the assignment text says:
+
+> *Task B: Event Registration with Waitlist*
+
+So your code correctly implements the **event subsystem**, but your **requirements spec is broader**.
+
+---
+
+# 7. Recommendation (Best for Submission)
+
+Add this note to your **revision notes or comments**:
+
+> The current Python implementation focuses on the **event registration and waitlist management subsystem (Task B)**. Reminder scheduling requirements are specified at the system level but are outside the scope of this module.
+
+This protects you during grading.
+
+---
+
+✅ If you want, I can also show you **3 small improvements professors love to see in this assignment (deterministic design, invariants, and defensive programming)** that would make your solution look **significantly stronger.**
+
 
 --------------------------------------------------
 
-Prompt #6: 
+Prompt #6: Yes please
+LLM Response: Below are **three improvements that typically score very well in software engineering / systems labs** because they show **deterministic design, invariant protection, and defensive programming**. These improvements fit directly into your current `solution.py` without changing the overall architecture.
+
+---
+
+# 1. Add an Explicit Invariant Checker (Professors Love This)
+
+Your specification states these invariants:
+
+* A user may not appear more than once
+* A user may not exist in multiple states
+* Registered users ≤ capacity
+
+Right now the code **assumes** these are always true, but does not **verify them**.
+
+A clean solution is to add a **private invariant check**.
+
+### Add this function inside `EventRegistration`
+
+```python
+def _check_invariants(self) -> None:
+    """
+    Ensures system invariants are preserved after each operation.
+    """
+    # Capacity invariant
+    assert len(self._registered) <= self._capacity, \
+        "Invariant violated: registered users exceed capacity"
+
+    # No duplicates in registered
+    assert len(self._registered) == len(set(self._registered)), \
+        "Invariant violated: duplicate users in registered list"
+
+    # No duplicates in waitlist
+    assert len(self._waitlist) == len(set(self._waitlist)), \
+        "Invariant violated: duplicate users in waitlist"
+
+    # No user in both lists
+    overlap = set(self._registered) & set(self._waitlist)
+    assert not overlap, \
+        f"Invariant violated: user appears in multiple states {overlap}"
+```
+
+---
+
+### Call it after every state change
+
+Example in `register()`:
+
+```python
+self._registered.append(user_id)
+self._check_invariants()
+```
+
+And after waitlist insertion:
+
+```python
+self._waitlist.append(user_id)
+self._check_invariants()
+```
+
+And after cancellation/promotion.
+
+This demonstrates **strong system correctness guarantees**.
+
+---
+
+# 2. Enforce Deterministic Tie-Breaking Rule Explicitly
+
+Your requirements specify deterministic behavior under ties.
+
+Even though FIFO already ensures this, **documenting the rule in code improves clarity**.
+
+Add a comment near the waitlist:
+
+```python
+# FIFO waitlist ensures deterministic promotion order
+self._waitlist: List[str] = []
+```
+
+And inside `cancel()`:
+
+```python
+# Deterministic promotion rule: promote earliest waitlisted user (FIFO)
+promoted_user = self._waitlist.pop(0)
+```
+
+This explicitly satisfies:
+
+* **C4 deterministic rule**
+* **EC4 deterministic promotion**
+
+Graders often check that the **policy is clearly stated in code**.
+
+---
+
+# 3. Improve Duplicate Detection Performance
+
+Currently duplicate detection uses:
+
+```python
+if user_id in self._registered or user_id in self._waitlist:
+```
+
+This is **O(n)** each time.
+
+For larger systems, a better approach is to maintain a **set of all users in the system**.
+
+---
+
+### Add this to `__init__`
+
+```python
+self._users = set()
+```
+
+---
+
+### Update `register()`
+
+```python
+if user_id in self._users:
+    raise DuplicateRequest(f"User {user_id} already exists")
+
+self._users.add(user_id)
+```
+
+---
+
+### Update `cancel()`
+
+When removing a user:
+
+```python
+self._users.remove(user_id)
+```
+
+And if promoting:
+
+```python
+promoted_user = self._waitlist.pop(0)
+self._registered.append(promoted_user)
+```
+
+No change needed to `_users` since the user is already tracked.
+
+---
+
+This improves:
+
+* **performance**
+* **system consistency**
+* **duplicate detection reliability**
+
+---
+
+# 4. Small But Important Fix (Return Type)
+
+Your function currently says:
+
+```python
+def cancel(self, user_id: str) -> None:
+```
+
+But it returns strings.
+
+Correct version:
+
+```python
+def cancel(self, user_id: str) -> str:
+```
+
+---
+
+# 5. Optional: Deterministic Snapshot (Great for Testing)
+
+Your snapshot function is good, but you can make it clearer:
+
+```python
+def snapshot(self) -> dict:
+    """
+    Deterministic state snapshot useful for testing.
+    """
+    return {
+        "capacity": self._capacity,
+        "registered_users": list(self._registered),
+        "waitlisted_users": list(self._waitlist),
+        "waitlist_size": len(self._waitlist)
+    }
+```
+
+This helps during **automated testing**.
+
+---
+
+# Final Result
+
+If you implement these three improvements, your solution will demonstrate:
+
+✔ Deterministic behavior
+✔ Strong invariant protection
+✔ Defensive programming
+✔ Better algorithmic design
+✔ Clear policy documentation
+
+These are exactly the qualities instructors look for in **systems / software engineering assignments**.
+
+---
+
+If you'd like, I can also show you **one very clean final version of `EventRegistration` (about 25 lines cleaner)** that professors often consider **“excellent design quality.”**
+
+
+--------------------------------------------------
+
+--------------------------------------------------
+
+Prompt #7: 
 LLM Response: 
 
 --------------------------------------------------

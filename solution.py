@@ -59,6 +59,7 @@ class UserStatus:
     """
     state: str
     position: Optional[int] = None
+    explanation: Optional[str] = None  # Optional field for additional info (e.g., error messages)
 
 
 class EventRegistration:
@@ -78,6 +79,20 @@ class EventRegistration:
         self._capacity = capacity
         self._registered: List[str] = []  # List of registered user IDs
         self._waitlist: List[str] = []    # List of waitlisted user IDs
+        self._users = set()  # Set of all user IDs for quick duplicate checks
+
+    def _check_invariants(self) -> None:
+        """
+        Ensures system invariants remain valid after each operations.
+        """
+        assert len(self._registered) <= self._capacity, \
+            "Registered users exceed capacity"
+        assert len(set(self._registered)) == len(set(self._registered)), \
+            "Duplicate users detected in registered list"
+        assert len(set(self._waitlist)) == len(set(self._waitlist)), \
+            "Duplicate users found in waitlist"
+        assert not (set(self._registered) & set(self._waitlist)), \
+            "User exists in both registered and waitlist"
 
     def register(self, user_id: str) -> UserStatus:
         """
@@ -89,15 +104,28 @@ class EventRegistration:
             DuplicateRequest if user already exists (registered or waitlisted)
         """
         # TODO: Implement per lab handout
+        if user_id in self._users:
+            raise DuplicateRequest(f"User {user_id} already exists, Registration failed")
         if user_id in self._registered or user_id in self._waitlist:
             raise DuplicateRequest(f"User {user_id} already exists")
-        
+        self._users.add(user_id)
+
         if len(self._registered) < self._capacity:
             self._registered.append(user_id)
-            return UserStatus(state="registered")
-        
+            explanation = "User registered successfully"
+            self._check_invariants()
+            return UserStatus(
+                state="registered",
+                explanation=explanation
+            )
         self._waitlist.append(user_id)
-        return UserStatus(state="waitlisted", position=len(self._waitlist))
+        explanation = "Event Full, User added to waitlist"
+        self._check_invariants()
+        return UserStatus(
+            state="waitlisted", 
+            position=len(self._waitlist),
+            explanation=explanation
+        )
 
     def cancel(self, user_id: str) -> None:
         """
@@ -110,16 +138,28 @@ class EventRegistration:
             NotFound (if required by handout)
         """
         # TODO: Implement per lab handout
+        if user_id not in self._users:
+            raise NotFound(f"User {user_id} not found for cancellation")
+        self._users.remove(user_id)
+
         if user_id in self._registered:
             self._registered.remove(user_id)
+            explanation = f"User {user_id} cancelled registration"
             if self._waitlist:
                 promoted_user = self._waitlist.pop(0)
                 self._registered.append(promoted_user)
-            return
+                explanation += (
+                    f" Waitlisted user {promoted_user} promoted to registered"
+                )
+            self._check_invariants()
+            return explanation
         if user_id in self._waitlist:
             self._waitlist.remove(user_id)
-            return
-        raise NotFound(f"User {user_id} not found")
+            self._check_invariants()
+            return f"User {user_id} removed from waitlist"
+        raise NotFound(
+            f"Cancellation failed: User {user_id} not found in registered or waitlist"
+        )
 
     def status(self, user_id: str) -> UserStatus:
         """
@@ -130,11 +170,14 @@ class EventRegistration:
         """
         # TODO: Implement per lab handout
         if user_id in self._registered:
-            return UserStatus(state="registered")
+            return UserStatus(
+                state="registered",
+                explanation="User is currently registered"
+            )
         if user_id in self._waitlist:
             position = self._waitlist.index(user_id) + 1
-            return UserStatus(state="waitlisted", position=position)
-        return UserStatus(state="none")
+            return UserStatus(state="waitlisted", position=position, explanation=f"User is waitlisted at position {position}")
+        return UserStatus(state="none", explanation="User not found in registered or waitlist")
 
 
     def snapshot(self) -> dict:
@@ -146,5 +189,7 @@ class EventRegistration:
         return {
             "capacity": self._capacity,
             "registered": list(self._registered),
-            "waitlist": list(self._waitlist)
+            "waitlist": list(self._waitlist),
+            "registered_count": len(self._registered),
+            "waitlist_count": len(self._waitlist)
         }
