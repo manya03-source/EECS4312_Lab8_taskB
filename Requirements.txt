@@ -1,0 +1,150 @@
+Requirements.txt
+##Name: Manya Khattri
+##Student ID: 219830025
+
+##1 Problem Understanding
+System purpose:
+The system manages reminders and event registrations while automatically resolving scheduling conflicts and maintaining deterministic behavior. It is designed to reduce cognitive load for busy users while also providing clear explanations for system decisions when required.
+
+Inputs to the system:
+-> Reminder creation requests (time and reminder name)
+-> Reminder updates or snooze requests
+-> Reminder cancellation requests
+-> Event registration requests
+-> Event cancellation requests
+-> Event capacity values
+-> User interaction commands
+Outputs produced by the system:
+-> Ordered reminder schedules
+-> Registration confirmations
+-> Waitlist promotion notifications
+-> System explanations for automatic decisions
+-> Error messages for invalid or duplicate requests
+
+##2 Assumptions
+A1: The system receives valid timestamps for reminders and registrations.
+A2: Users interact with the system through a reliable interface that correctly sends their requests.
+A3: Reminder names or event identifiers are unique enough to differentiate between reminders.
+A4: Event capacity values are predefined and provided to the system before registrations occur.
+A5: Users may frequently modify reminders (e.g., snooze or cancel them).
+A6: The system must operate deterministically so that identical inputs always produce the same outputs.
+
+##3 Functional Requirements
+FR1: The system shall allow users to create reminders with a timestamp and description.
+FR2: The system shall display reminders in a deterministic order when multiple reminders share the same timestamp.
+FR3: The system shall automatically resolve reminder conflicts without requiring manual user intervention.
+FR4: The system shall allow users to register for events and maintain a waitlist when the event capacity is full.
+FR5: The system shall automatically promote users from the waitlist when an event slot becomes available.
+FR6: The system shall provide explanations when reminders are skipped, moved, or when waitlist promotions occur.
+
+##4 System Constraints
+--> C1:
+Derived from persona attribute: Jane: Need for predictable and stable ordering of reminders.
+Constraint: The system must always produce deterministic ordering when multiple reminders share the same timestamp.
+--> C2:
+Derived from persona attribute: Jane: Need to avoid notification overload.
+Constraint: The system must avoid generating duplicate or excessive notifications for the same reminder or event.
+--> C3:
+Derived from persona attribute: Jane: Trusts the system to resolve conflicts automatically.
+Constraint: The system must automatically resolve scheduling conflicts without requiring manual intervention.
+--> C4:
+Derived from persona attribute: Mo: Requires deterministic behavior under ties.
+Constraint: The system must apply a deterministic rule when multiple valid outcomes exist.
+--> C5:
+Derived from persona attribute: Mo: Needs clear explanations for system decisions.
+Constraint: The system must provide explanations when reminders are moved, skipped, or when waitlist promotions occur.
+--> C6:
+Derived from persona attribute: Mo: Pain point: silent failures.
+Constraint: The system must return a clear error message when an invalid or duplicate action is requested instead of silently ignoring it.
+
+##5 Acceptance Criteria
+-->AC1:
+Given multiple reminders with identical timestamps
+When the system displays reminders
+Then reminders must appear in deterministic order.
+Linked Constraint ID(s): C1, C4
+-->AC2:
+Given two reminders conflict in time
+When the system processes the schedule
+Then the system must automatically resolve the conflict without user intervention.
+Linked Constraint ID(s): C3
+-->AC3:
+Given a reminder is moved or skipped due to a conflict
+When the system processes the schedule
+Then the system must provide a clear explanation to the user.
+Linked Constraint ID(s): C5
+-->AC4:
+Given a user attempts to register for a full event
+When the request is processed
+Then the user must be placed on the waitlist.
+Linked Constraint ID(s): C3
+-->AC5:
+Given a duplicate reminder request is submitted
+When the system processes the request
+Then the duplicate request must be rejected with an error message.
+Linked Constraint ID(s): C6
+-->AC6:
+Given multiple notifications are triggered for the same reminder
+When the system generates notifications
+Then only one notification must be sent.
+Linked Constraint ID(s): C2
+
+##6 Edge Cases
+-->EC1:
+Description: Two reminders occur at the exact same timestamp.
+Expected system behavior: The system orders reminders deterministically according to the tie breaking rule.
+-->EC2:
+Description: Event registration occurs when event capacity is zero.
+Expected system behavior: The system places the user on the waitlist instead of registering them.
+-->EC3:
+Description: A duplicate reminder request is submitted.
+Expected system behavior: The system rejects the duplicate request and returns an error message.
+
+##7 Traceability
+FR1 → C1 → AC1
+FR2 → C1, C4 → AC1
+FR3 → C3 → AC2
+FR4 → C3 → AC4
+FR5 → C3 → AC4
+FR6 → C5 → AC3
+
+##8 Revision Notes
+--> Revision Note 1:
+Requirement Added: C7 - Derived from persona attribute: Mo - Need for deterministic system behavior under ties. Constraint: When multiple reminders share the same timestamp, the system must apply a deterministic tie breaking rule (e.g., alphabetical ordering by reminder name).
+Reason: Without this, AC1 cannot be implemented consistently.
+Action: Added C7 and updated AC1 to reference C7.
+--> Revision Note 2: 
+Requirement Added: C8 - Derived from persona attribute: Mo - Pain point: inconsistent responses across repeated scenarios. Constraint: The system must produce identical outputs when the same inputs are processed multiple times.
+Reason: This ensures that the system behaves predictably and builds user trust.
+Action: Accepted this addition
+--> Revision Note 3:
+Requirement Updated: FR3: The system shall automatically resolve reminder conflicts by applying a deterministic tie - breaking rule or adjusting reminder ordering while maintaining deterministic behavior.
+Reason: AC3 refers to skipped or moved reminders, your spec assumes movement / skip behavior but never defines the policy.
+Action: Updated FR3
+--> Revision Note 4:
+Requirement Updated: C2: The system must ensure only one notification is generated per reminder event.
+Reason: "Avoid excessive notifications" is vague and could be interpreted in different ways. This clarifies the requirement to ensure consistent implementation.
+Action: Updated C2 for clarity.
+--> Revision Note 5:
+Requirement Added: EC4 - Description: Multiple users exist on the waitlist when a slot becomes available. Expected system behavior: The system promotes users in deterministic order (e.g., first- come - first - served).
+Reason: In case multiple users are on the waitlist, the system needs a clear policy for promotion to ensure fairness and predictability.
+Action: Added EC4 to cover this scenario.
+--> Revision Note 6:
+Requirement added: EC5 - Description: A reminder is updated or snoozed to a timestamp that conflicts with another reminder. Expected system behavior: The system resolves the conflict using the deterministic tie- breaking rule and provides an explanation.
+Reason: Mo frequently updates reminders, and this scenario could lead to conflicts that need to be resolved while maintaining deterministic behavior.
+Action: Added EC5 to cover this scenario.
+--> Revision Note 7:
+Requirement Added: EC6 - Description: A user attempts to cancel a reminder that does not exist. Expected system behavior: The system returns a clear error message instead of silently ignoring the request.
+Reason: Common edge case that could lead to user confusion if not handled properly.
+Action: Added EC6 to ensure robust error handling.
+--> Revision Note 8:
+Requirement Added: EC7 - Description: A user attempts to register multiple times for the same event. Expected system behavior: The system rejects the duplicate registration and provides an explanation.
+Reason: we handled duplicate reminders but not duplicate event registrations, which is a similar issue that needs to be addressed for consistency.
+Action: Added EC7 to cover this scenario and ensure consistent handling of duplicates across different types of requests.
+--> Revision Note 9:
+Requirement Updated: Traceeability: Updated traceability to include new requirements and edge cases added in revisions.
+FR6 → C5 → AC3
+FR1 → C6 → AC5
+FR2 → C2 → AC6
+Reason: To ensure that all requirements, constraints, and acceptance criteria are properly linked for traceability.
+Action: Updated traceability section to reflect changes from revisions.
